@@ -1,6 +1,5 @@
-# --- SENSITIVE: ACB case files & extracted text must never be committed ---
-*.pdf
-*.PDF
+# --- Test PDFs are committed intentionally for reproducible testing ---
+# (extracted OCR output is still kept out of git)
 ocr_output.md
 ocr_output.txt
 *_output.md
