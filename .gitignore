@@ -1,0 +1,33 @@
+# --- SENSITIVE: ACB case files & extracted text must never be committed ---
+*.pdf
+*.PDF
+ocr_output.md
+ocr_output.txt
+*_output.md
+*_output.txt
+
+# --- Python virtual environments ---
+ocr-env/
+venv/
+.venv/
+env/
+
+# --- Python caches / build ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.ipynb_checkpoints/
+
+# --- Model / HF caches (large) ---
+*.safetensors
+*.bin
+.cache/
+hf_cache/
+models/
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+.DS_Store
+*.swp

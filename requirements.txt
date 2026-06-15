@@ -1,0 +1,24 @@
+# Nanonets-OCR2-3B (Qwen2.5-VL based) OCR pipeline
+# Tested on NVIDIA RTX A4000 (16GB), CUDA, Python 3.10
+
+# --- core inference ---
+torch>=2.4
+torchvision                 # Qwen2.5-VL image processing
+# transformers v5 fails to load Nanonets-OCR2 lm_head -> garbage output.
+# Must stay on 4.x.
+transformers>=4.57,<5
+accelerate                  # device_map="auto" placement
+
+# --- tokenizer / model deps ---
+sentencepiece
+protobuf
+einops
+timm                        # vision tower
+safetensors
+huggingface_hub
+
+# --- document / image handling ---
+pymupdf                     # PDF -> image (fitz)
+pillow                      # image container
+opencv-python-headless      # deskew, denoise, CLAHE preprocessing
+numpy
