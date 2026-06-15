@@ -1,0 +1,53 @@
+# Turnkey deploy:  cp .env.example .env  (set API_KEY)  then  ./deploy.sh
+# Brings up three services: nginx (public TLS), api (no GPU), worker (GPU).
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      DB_PATH: /data/jobs.db
+    volumes:
+      - ocr-data:/data
+    expose:
+      - "8000"
+    # no ports published - only nginx is public
+
+  worker:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      DB_PATH: /data/jobs.db
+      HF_HOME: /hf-cache
+    command: ["python", "-m", "app.worker"]
+    volumes:
+      - ocr-data:/data
+      - hf-cache:/hf-cache      # model downloaded once, persisted here
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/entrypoint.sh:/docker-entrypoint.d/99-selfsigned.sh:ro
+      - certs:/etc/nginx/certs
+
+volumes:
+  ocr-data:
+  hf-cache:
+  certs:

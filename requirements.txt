@@ -22,3 +22,8 @@ pymupdf                     # PDF -> image (fitz)
 pillow                      # image container
 opencv-python-headless      # deskew, denoise, CLAHE preprocessing
 numpy
+
+# --- API service ---
+fastapi                     # REST API
+uvicorn[standard]           # ASGI server
+python-multipart            # multipart/form-data PDF uploads

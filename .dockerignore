@@ -1,0 +1,16 @@
+# Keep the build context small and free of sensitive data.
+ocr-env/
+venv/
+.venv/
+__pycache__/
+*.pyc
+.git/
+.claude/
+tests/
+*.pdf
+*.PDF
+ocr_output.md
+ocr_output.txt
+data/
+*.md
+!README.md
