@@ -1,0 +1,22 @@
+[Unit]
+# Runs the full ACB OCR stack (nginx + api + worker) via Docker Compose.
+# The containers themselves use restart: unless-stopped for crash recovery;
+# this unit makes the whole stack come up automatically on instance boot.
+Description=ACB OCR Service (Docker Compose)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# __WORKDIR__ is replaced by install-service.sh with the repo's absolute path.
+WorkingDirectory=__WORKDIR__
+# First boot pulls the model (~7GB); never time the start out.
+TimeoutStartSec=0
+ExecStart=/usr/bin/docker compose up -d --build
+ExecStop=/usr/bin/docker compose down
+ExecReload=/usr/bin/docker compose up -d --build
+
+[Install]
+WantedBy=multi-user.target

@@ -14,7 +14,7 @@ from app import db, storage
 from app.api import app
 
 KEY = {"Authorization": "Bearer test-key"}
-client = TestClient(app)
+client = TestClient(app)  # schema created by conftest (no lifespan on plain init)
 
 
 def _make_pdf(pages=2):
@@ -34,6 +34,25 @@ def test_health():
 def test_auth_required():
     r = client.get("/jobs/does-not-exist")
     assert r.status_code == 401
+
+
+def test_cors_preflight():
+    # Browser preflight for a cross-origin POST carrying the Bearer header.
+    r = client.options(
+        "/jobs",
+        headers={
+            "Origin": "https://app.example.com",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "authorization",
+        },
+    )
+    assert r.status_code == 200
+    assert r.headers["access-control-allow-origin"] == "*"  # default CORS_ORIGINS
+
+
+def test_cors_actual_request_has_header():
+    r = client.get("/healthz", headers={"Origin": "https://app.example.com"})
+    assert r.headers.get("access-control-allow-origin") == "*"
 
 
 def test_unknown_job_404():

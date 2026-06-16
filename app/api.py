@@ -5,6 +5,7 @@ Auth: every request must carry  Authorization: Bearer <API_KEY>.
 """
 
 import shutil
+from contextlib import asynccontextmanager
 
 import fitz
 from fastapi import (
@@ -15,18 +16,35 @@ from fastapi import (
     HTTPException,
     UploadFile,
 )
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from . import db, storage
 from .settings import settings
 
-app = FastAPI(title="ACB OCR Service", version="1.0")
 
-
-@app.on_event("startup")
-def _startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Validate config (fails fast if API_KEY missing) and create the schema
+    # before serving any request.
     settings.check()
     db.init_db()
+    yield
+
+
+app = FastAPI(title="ACB OCR Service", version="1.0", lifespan=lifespan)
+
+# CORS so browser clients (React/Next/etc.) on other origins can call the API.
+# CORSMiddleware also answers preflight OPTIONS automatically. Origins and
+# credentials come from the environment (see settings.cors_config).
+_cors_origins, _cors_creds = settings.cors_config()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_creds,
+    allow_methods=["*"],
+    allow_headers=["*"],   # includes Authorization for the Bearer key
+)
 
 
 def require_key(authorization: str = Header(default="")):

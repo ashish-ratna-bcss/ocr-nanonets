@@ -21,6 +21,18 @@ class Settings:
     # Required - the service refuses to start without it (see check()).
     API_KEY: str = os.environ.get("API_KEY", "")
 
+    # CORS. "*" = allow any origin (dev / server-to-server). For production
+    # browser clients, set a comma-separated allowlist, e.g.
+    #   CORS_ORIGINS=https://app.example.com,https://admin.example.com
+    # Spec forbids credentials with "*", so credentials are forced off in
+    # that case (see cors_config()). Our auth is a Bearer header, not a
+    # cookie, so credentials are not needed for the common case anyway.
+    CORS_ORIGINS: str = os.environ.get("CORS_ORIGINS", "*")
+    CORS_ALLOW_CREDENTIALS: bool = (
+        os.environ.get("CORS_ALLOW_CREDENTIALS", "false").lower()
+        in ("1", "true", "yes")
+    )
+
     # Where jobs (input PDF, per-page checkpoints, output.md) live.
     DATA_DIR: Path = Path(os.environ.get("DATA_DIR", "/data"))
     DB_PATH: Path = Path(os.environ.get("DB_PATH", "/data/jobs.db"))
@@ -39,6 +51,18 @@ class Settings:
 
     # Worker poll interval (seconds) when the queue is empty.
     POLL_SECONDS: int = _int("POLL_SECONDS", 2)
+
+    def cors_config(self):
+        """Resolve CORS settings into kwargs for CORSMiddleware.
+
+        Returns (allow_origins, allow_credentials). Wildcard origins force
+        credentials off because the CORS spec disallows the combination and
+        browsers reject it.
+        """
+        origins = [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+        if not origins or "*" in origins:
+            return ["*"], False
+        return origins, self.CORS_ALLOW_CREDENTIALS
 
     def check(self):
         if not self.API_KEY:

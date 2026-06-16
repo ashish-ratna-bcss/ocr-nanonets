@@ -44,6 +44,72 @@ curl -k https://localhost/healthz
 
 That's it — no code edits, no manual steps.
 
+## Deploy on AWS EC2 (production)
+
+One-time setup on a fresh GPU instance (e.g. `g5.xlarge` — Ubuntu 22.04 +
+NVIDIA driver). After this, the API survives reboots, crashes, and SSH logout
+with zero manual steps.
+
+```bash
+# 1. Host prereqs (one-time)
+sudo apt-get update && sudo apt-get install -y docker.io docker-compose-v2
+# NVIDIA Container Toolkit (so the worker sees the GPU):
+#   https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+
+# 2. Get the code + config
+git clone <repo> acb-ocr && cd acb-ocr
+cp .env.example .env
+nano .env            # set a strong API_KEY (openssl rand -hex 32) + CORS_ORIGINS
+
+# 3. Install as a boot-persistent systemd service
+sudo ./install-service.sh
+```
+
+`install-service.sh` writes `/etc/systemd/system/acb-ocr.service`, enables
+Docker + the unit on boot, and starts the stack. From now on:
+
+| You do | What happens automatically |
+|--------|----------------------------|
+| Stop/start the EC2 instance | service comes back up on boot |
+| App crashes | container restarts (`restart: unless-stopped`) |
+| Close SSH | service keeps running (managed by systemd, not your shell) |
+| Edit `.env` | `sudo systemctl restart acb-ocr` to apply |
+
+Operate it:
+
+```bash
+systemctl status acb-ocr        # is it up?
+journalctl -u acb-ocr -f        # service-level logs
+docker compose logs -f worker   # model load / OCR progress
+sudo systemctl restart acb-ocr  # apply .env changes
+```
+
+### Elastic IP (stable public address)
+
+A default EC2 public IP changes every stop/start. Attach an Elastic IP so the
+address is permanent:
+
+1. EC2 console → **Elastic IPs** → **Allocate Elastic IP address**.
+2. Select it → **Actions → Associate** → choose the instance.
+3. Clients hit `https://<elastic-ip>/…`. It stays the same across reboots.
+
+(No domain needed. TLS is a self-signed cert by default — see the TLS note
+under the Next.js example.)
+
+### Security group (firewall) rules
+
+Inbound rules on the instance's security group:
+
+| Type | Protocol | Port | Source | Why |
+|------|----------|------|--------|-----|
+| HTTPS | TCP | 443 | `0.0.0.0/0` (or your app/CIDR allowlist) | API traffic |
+| HTTP | TCP | 80 | `0.0.0.0/0` | redirect to HTTPS |
+| SSH | TCP | 22 | **your IP only** | admin access |
+
+Sensitive data: restrict 443 to known client IPs/CIDRs where possible rather
+than opening it to the whole internet. Outbound: leave default (allow all) so
+the worker can download the model from Hugging Face on first start.
+
 ## API
 
 All requests need `Authorization: Bearer <API_KEY>`.
@@ -117,10 +183,32 @@ See `.env.example`. Only `API_KEY` is required.
 | Var | Default | Meaning |
 |-----|---------|---------|
 | `API_KEY` | – | shared secret (required) |
+| `CORS_ORIGINS` | `*` | allowed browser origins; `*` or comma-separated allowlist |
+| `CORS_ALLOW_CREDENTIALS` | `false` | allow cookies (ignored when origins = `*`) |
+| `HTTPS_PORT` | 443 | host port for TLS |
+| `HTTP_PORT` | 80 | host port for plain HTTP (redirects to HTTPS) |
 | `RETENTION_DAYS` | 7 | auto-delete finished jobs after N days (0 = keep) |
 | `RENDER_DPI` | 300 | page rasterisation DPI |
 | `MAX_PAGES` | 300 | reject larger PDFs |
 | `MAX_UPLOAD_MB` | 300 | reject larger uploads |
+
+### CORS (browser clients)
+
+Server-to-server callers (Next.js route handlers, mobile backends) don't need
+CORS. Browser apps calling the API **directly** do. Configure via `.env`:
+
+```env
+# development — any origin
+CORS_ORIGINS=*
+
+# production — explicit allowlist
+CORS_ORIGINS=https://app.example.com,https://admin.example.com
+```
+
+Preflight `OPTIONS` requests are answered automatically, and the
+`Authorization` header (the Bearer key) is allowed, so API-key auth works
+across origins. The spec forbids credentials with a wildcard origin, so
+`CORS_ALLOW_CREDENTIALS` is ignored while `CORS_ORIGINS=*`.
 
 ## Local CLI (no server)
 

@@ -24,6 +24,6 @@ opencv-python-headless      # deskew, denoise, CLAHE preprocessing
 numpy
 
 # --- API service ---
-fastapi                     # REST API
-uvicorn[standard]           # ASGI server
-python-multipart            # multipart/form-data PDF uploads
+fastapi>=0.115,<1           # REST API (lifespan + CORS middleware)
+uvicorn[standard]>=0.30     # ASGI server
+python-multipart>=0.0.9     # multipart/form-data PDF uploads
