@@ -74,12 +74,7 @@ def main():
     db.init_db()
     db.recover_stuck_jobs()
 
-    print("Loading OCR model (one-time)...", flush=True)
-    engine = OCREngine(
-        model_id=settings.MODEL_ID,
-        dpi=settings.RENDER_DPI,
-    )
-    print("Model loaded. Worker ready.", flush=True)
+    print("Worker ready (on-demand model loading enabled).", flush=True)
 
     last_cleanup = 0.0
     while True:
@@ -95,12 +90,36 @@ def main():
         if not job:
             time.sleep(settings.POLL_SECONDS)
             continue
+
+        engine = None
         try:
+            print(f"Claimed job {job['id']}. Loading OCR model...", flush=True)
+            engine = OCREngine(
+                model_id=settings.MODEL_ID,
+                dpi=settings.RENDER_DPI,
+            )
+            print("Model loaded. Starting transcription...", flush=True)
             process_job(engine, job)
         except Exception as e:
             traceback.print_exc()
             db.update_job(job["id"], status="failed",
                           error=f"{type(e).__name__}: {e}")
+        finally:
+            if engine is not None:
+                print("Releasing VRAM and freeing resources...", flush=True)
+                if hasattr(engine, "model"):
+                    del engine.model
+                if hasattr(engine, "processor"):
+                    del engine.processor
+                del engine
+                engine = None
+
+                import gc
+                import torch
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                print("VRAM released successfully.", flush=True)
 
 
 if __name__ == "__main__":
