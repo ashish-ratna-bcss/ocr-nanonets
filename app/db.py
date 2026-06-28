@@ -52,7 +52,7 @@ def create_job(filename):
     with _conn() as con:
         con.execute(
             "INSERT INTO jobs (id, filename, status, created_at, updated_at)"
-            " VALUES (?, ?, 'queued', ?, ?)",
+            " VALUES (?, ?, 'uploading', ?, ?)",
             (job_id, filename, now, now),
         )
     return job_id

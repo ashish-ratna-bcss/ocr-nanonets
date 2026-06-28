@@ -71,19 +71,25 @@ async def create_job(file: UploadFile = File(...)):
 
     size = 0
     limit = settings.MAX_UPLOAD_MB * 1024 * 1024
-    with open(dest, "wb") as out:
-        while chunk := await file.read(1024 * 1024):
-            size += len(chunk)
-            if size > limit:
-                out.close()
-                shutil.rmtree(storage.job_dir(job_id), ignore_errors=True)
-                db.update_job(job_id, status="failed",
-                              error="upload exceeds size limit")
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"file exceeds {settings.MAX_UPLOAD_MB} MB",
-                )
-            out.write(chunk)
+    try:
+        with open(dest, "wb") as out:
+            while chunk := await file.read(1024 * 1024):
+                size += len(chunk)
+                if size > limit:
+                    out.close()
+                    shutil.rmtree(storage.job_dir(job_id), ignore_errors=True)
+                    db.update_job(job_id, status="failed",
+                                  error="upload exceeds size limit")
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"file exceeds {settings.MAX_UPLOAD_MB} MB",
+                    )
+                out.write(chunk)
+    except Exception as e:
+        if not isinstance(e, HTTPException):
+            shutil.rmtree(storage.job_dir(job_id), ignore_errors=True)
+            db.update_job(job_id, status="failed", error=f"upload failed: {e}")
+        raise e
 
     # Validate it is a real PDF and within page limit before queueing.
     try:
@@ -103,7 +109,7 @@ async def create_job(file: UploadFile = File(...)):
             detail=f"page count {pages} outside 1..{settings.MAX_PAGES}",
         )
 
-    db.update_job(job_id, total_pages=pages)
+    db.update_job(job_id, total_pages=pages, status="queued")
     return {"job_id": job_id, "status": "queued", "total_pages": pages}
 
 

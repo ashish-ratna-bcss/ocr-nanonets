@@ -103,7 +103,11 @@ def deskew(gray):
 
 def preprocess(pil_img):
     """grayscale -> denoise -> CLAHE adaptive contrast -> deskew."""
-    gray = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2GRAY)
+    img_np = np.array(pil_img)
+    if len(img_np.shape) == 3 and img_np.shape[2] >= 3:
+        gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
+    else:
+        gray = img_np
     gray = cv2.fastNlMeansDenoising(gray, h=10)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     gray = clahe.apply(gray)
