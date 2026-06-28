@@ -44,6 +44,8 @@ class Settings:
     # OCR knobs.
     MODEL_ID: str = os.environ.get("MODEL_ID", "nanonets/Nanonets-OCR2-3B")
     RENDER_DPI: int = _int("RENDER_DPI", 300)
+    MIN_PIXELS: int = _int("MIN_PIXELS", 256 * 28 * 28)
+    MAX_PIXELS: int = _int("MAX_PIXELS", 768 * 28 * 28)
 
     # Reject absurd uploads early. Also enforced by nginx body size.
     MAX_PAGES: int = _int("MAX_PAGES", 300)

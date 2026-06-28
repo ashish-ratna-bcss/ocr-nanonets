@@ -175,8 +175,13 @@ class OCREngine:
         self.case_context = case_context
         self.corrections = corrections or dict(DEFAULT_CORRECTIONS)
 
+        from .settings import settings
+
         self.processor = AutoProcessor.from_pretrained(
-            model_id, trust_remote_code=True
+            model_id,
+            trust_remote_code=True,
+            min_pixels=settings.MIN_PIXELS,
+            max_pixels=settings.MAX_PIXELS,
         )
         self.model = AutoModelForImageTextToText.from_pretrained(
             model_id,
